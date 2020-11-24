@@ -1,0 +1,5 @@
+the-blog.db
+*.bak
+sqlite-*
+*.dep
+*.zo
