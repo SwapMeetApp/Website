@@ -20,14 +20,12 @@
 
 (define hc (http-conn))
 
-(define DEF-SEARCH "https://api.github.com/users/jsoo1")
-
 (http-conn-open! hc
                  "api.github.com"
                  #:ssl? #t)                               
                  
 (http-conn-send! hc
-                 DEF-SEARCH 
+                 "https://api.github.com/users/jsoo1"
                  #:method #"GET"
                  #:headers (list "accept: application/json")
                  #:version #"1.1")
@@ -43,37 +41,12 @@
 (define (style-color color)
   (string-append "color:" color ";" "background-color:black;"))
 
-;; bindings -> string
-(define (make-search-name b)
-  (string-append "https://api.github.com/users/" b))
-
-; start: request -> response
-; Consumes a request and produces a page that displays all of the
-; web content.
-(define (start request)
-  (define a-search
-    (cond 
-      [(can-parse-search? (request-bindings request))
-        (make-search-name (request-bindings request))]
-      [else DEF-SEARCH]))
-  (render-home-page a-search request))
- 
- 
-; can-parse-search?: bindings -> boolean
-; Produces true if bindings contains values for 'username
-(define (can-parse-search? bindings)
-   (exists-binding? 'username bindings))
- 
-
-(define (render-home-page a-search request)
+(define (render-home-page request)
     (response/xexpr
      `(html (head (title "Vincent Lay"))
             (body
              (h1 ((style ,(style-color "blue")))"Vincent Lay")
-             (h2 ((style "margin:auto;")) ,(hash-ref body 'bio)
-             (form
-              (input ((name "username")))
-              (input ((type "submit")))))))))  
+             (h2 ((style "margin:auto;")) ,(hash-ref body 'bio))))))  
 
 (require web-server/servlet-env)
 (serve/servlet render-home-page
