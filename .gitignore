@@ -3,3 +3,4 @@ the-blog.db
 sqlite-*
 *.dep
 *.zo
+.env
