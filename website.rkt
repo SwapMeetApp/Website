@@ -4,11 +4,13 @@
 (require json)
 (require web-server/servlet)
 (require racket/cmdline)
+(require net/uri-codec)
 
 (define SSL? (make-parameter #t))
 (define SSL-CERT (make-parameter #f))
 (define SSL-KEY (make-parameter #f))
 (define PORT (make-parameter 443))
+(define API-KEY (getenv "API_KEY"))
 
 (command-line 
   #:program "the website"
@@ -18,63 +20,68 @@
   [("--ssl-key") ssl-key "Path to the Key" (SSL-KEY ssl-key)]
   [("--port") port "Port" (PORT (string->number port))])
 
-
-(define DEF-SEARCH "https://api.github.com/users/jsoo1")
+(define DEF-SEARCH "q=Flowers")
 
 (define (style-color color)
   (string-append "color:" color ";" "background-color:black;"))
 
-;; bindings -> string
-(define (make-search-url b)
-  (string-append "https://api.github.com/users/"(extract-binding/single 'username b)))
+;; bindings -> query parameters
+(define (make-search-parameters b)
+  (string-append "q=" (form-urlencoded-encode (extract-binding/single 'searchterm b))))
 
-; start: request -> response
+; request -> response
 ; Consumes a request and produces a page that displays all of the
 ; web content.
-(define (start request)
+(define (accept request)
   (define a-search
     (cond 
       [(can-parse-search? (request-bindings request))
-        (make-search-url (request-bindings request))]
+        (make-search-parameters (request-bindings request))]
       [else DEF-SEARCH]))
   (render-home-page a-search request))
 
 ;; url-string --> response json
 ;;; no work 
-(define (get url)
+(define (get searchterms)
   (define hc (http-conn))
   (http-conn-open! hc
-                 "api.github.com"
+                 "www.googleapis.com"
                  #:ssl? #t)    
   (http-conn-send! hc
-                 url
-                 #:method #"GET"
-                 #:headers (list "accept: application/json")
-                 #:version #"1.1")
+                 (string-append "https://www.googleapis.com/books/v1/volumes?" searchterms "&" "key=" API-KEY)
+                 #:method #"GET")
   (define-values (status-line headers body-port) 
-  (http-conn-recv! hc
-                 #:method #"GET"))
+    (http-conn-recv! hc
+                 #:method #"GET"))            
   (read-json body-port))               
 
 
 ; can-parse-search?: bindings -> boolean
-; Produces true if bindings contains values for 'username
+; Produces true if bindings contains values for 'searchterm
 (define (can-parse-search? bindings)
-   (exists-binding? 'username bindings))
+   (exists-binding? 'searchterm bindings))
  
 
 (define (render-home-page a-search request)
+  (define titles-and-authors
+    (map 
+    (lambda (v)
+    (list (hash-ref (hash-ref v 'volumeInfo) 'title)
+          (hash-ref (hash-ref v 'volumeInfo) 'authors)
+          (hash-ref v 'selfLink)))
+      (hash-ref (get a-search) 'items)))
     (response/xexpr
-     `(html (head (title "Vincent Lay"))
+     `(html (head (title "booksearch"))
             (body
-             (h1 ((style ,(style-color "blue")))"Vincent Lay")
-             (h2 ((style "margin:auto;")) ,(hash-ref (get a-search) 'bio)
+             (h1 ((style ,(style-color "blue")))"booksearch")
+             (ul ((style "margin:auto;")) 
+              ,@(map (lambda (t) `(li (a ((href ,(third t))) ,(first t)))) titles-and-authors))
              (form
-              (input ((name "username")))
-              (input ((type "submit")))))))))  
+              (input ((name "searchterm")))
+              (input ((type "submit"))))))))  
 
 (require web-server/servlet-env)
-(serve/servlet start
+(serve/servlet accept
                #:launch-browser? #f
                #:quit? #f
                #:listen-ip #f
@@ -87,6 +94,5 @@
                #:ssl-cert (SSL-CERT) 
                #:ssl-key (SSL-KEY)
                #:log-file (current-output-port))
-
-;;           
+      
                
