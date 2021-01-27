@@ -7,6 +7,8 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(struct book (title authors self-link isbn))
+
 ;; Styling
 (define (style-color color)
   (string-append "color:" color ";" "background-color:black;"))
@@ -38,14 +40,12 @@
   (define-values (status-line headers body-port) 
     (http-conn-recv! hc
                  #:method #"GET"))            
-  (define json (read-json body-port))
-  
-  json)
+  (read-json body-port))
 
 ;;;;;;;;;;;;;
-;; parse-volume-info
- (define (parse-volume-info v)
-    (list
+;; json -> book
+ (define (parse-book v)
+    (book
       (hash-ref (hash-ref v 'volumeInfo) 'title)
       (hash-ref (hash-ref v 'volumeInfo) 'authors)
       (hash-ref v 'selfLink)
@@ -56,26 +56,42 @@
 (define (render-home-page request API-KEY)
   (define (response-generator embed/url)
     (response/xexpr
-     `(html (head (title "Booksearch"))
+     `(html (head (title "Booksearch") (script ((src "/main.js"))))
             (body
              (h1 ((style ,(style-color "green")))"Booksearch")
              (form ((action
-                     ,(embed/url render-results-page)))
+                     ,(embed/url (render-results-page API-KEY))))
                    (input ((name "search")))
                    (input ((type "submit"))))))))
- 
-  (define (render-results-page request)  
+  (send/suspend/dispatch response-generator))
+
+(define (render-results-page API-KEY)
+  (lambda (request)
+    (define (response-generator embed/url)  
         (define a-search
             (make-search-parameters (request-bindings request)))
         (define titles-and-authors
-            (map parse-volume-info (hash-ref (get a-search API-KEY) 'items)))
+            (map parse-book (hash-ref (get a-search API-KEY) 'items)))
         (response/xexpr
         `(html (head (title "results"))
             (body
              (h1 ((style ,(style-color "green")))"results")
              (ul ((style "margin:auto;")) 
-              ,@(map (lambda (t) `(li (a ((href ,(third t))) ,(first t)))) titles-and-authors))))))
-    (send/suspend/dispatch response-generator))
+              ,@(map (lambda (t) `(li (a ((href ,(embed/url (book-selection-confirmation-page API-KEY t)))) ,(book-title t)))) titles-and-authors))))))
+    (send/suspend/dispatch response-generator)))
+
+(define (book-selection-confirmation-page API-KEY book)
+  (lambda (request)
+    (response/xexpr
+        `(html (head (title "results"))
+            (body
+             (h1 ((style ,(style-color "green")))"results")
+             (ul ((style "margin:auto;"))
+
+;; add html representation for the results
+;; use send suspend in combo with embed url
+             
+))))))             
 
 (provide accept)   
  

@@ -1,8 +1,9 @@
 #lang racket
 
 (require racket/cmdline)
-(require web-server/servlet-env)
+(require "minimal.rkt")
 (require "homepage.rkt")
+(require net/rfc6455)
 
 (define SSL? (make-parameter #t))
 (define SSL-CERT (make-parameter #f))
@@ -18,9 +19,12 @@
   [("--ssl-key") ssl-key "Path to the Key" (SSL-KEY ssl-key)]
   [("--port") port "Port" (PORT (string->number port))])
 
+(define handle-websockets
+  (lambda (c s) (ws-send! c "Hello world!")))
+
 (serve/servlet (accept API-KEY)
+                handle-websockets
                #:launch-browser? #f
-               #:quit? #f
                #:listen-ip #f
                #:port (PORT)
                #:extra-files-paths
@@ -31,5 +35,4 @@
                #:ssl-cert (SSL-CERT) 
                #:ssl-key (SSL-KEY)
                #:log-file (current-output-port))
-      
-               
+           
