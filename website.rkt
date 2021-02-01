@@ -27,6 +27,7 @@
                #:launch-browser? #f
                #:listen-ip #f
                #:port (PORT)
+               #:mime-types-path "static/mime.types"
                #:extra-files-paths
                (list "static")
                #:servlet-path "/"

@@ -188,10 +188,6 @@
              #:path->mime-type (make-path->mime-type mime-types-path)
              #:indices (list "index.html" "index.htm")))
           extra-files-paths)
-     (files:make
-      #:url->path (fsmap:make-url->path (build-path server-root-path "htdocs"))
-      #:path->mime-type (make-path->mime-type mime-types-path)
-      #:indices (list "index.html" "index.htm"))
      (lift:make (compose any->response file-not-found-responder))))
   (serve/launch/wait
    dispatcher
