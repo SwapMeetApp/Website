@@ -160,7 +160,6 @@
                                (log:log-format->format log-format)
                                log-format)
                              #:log-path log-file))
-     (filter:make websocket-regexp (websocket:make-general-websockets-dispatcher ws-handler))
      (dispatch/servlet
       start
       #:regexp servlet-regexp
@@ -188,6 +187,7 @@
              #:path->mime-type (make-path->mime-type mime-types-path)
              #:indices (list "index.html" "index.htm")))
           extra-files-paths)
+     (filter:make websocket-regexp (websocket:make-general-websockets-dispatcher ws-handler))     
      (lift:make (compose any->response file-not-found-responder))))
   (serve/launch/wait
    dispatcher

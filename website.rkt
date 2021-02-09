@@ -19,8 +19,14 @@
   [("--ssl-key") ssl-key "Path to the Key" (SSL-KEY ssl-key)]
   [("--port") port "Port" (PORT (string->number port))])
 
-(define handle-websockets
-  (lambda (c s) (ws-send! c "Hello world!")))
+(define (handle-websockets conn req)
+  (print (sync (ws-recv-evt conn)))
+  (hello-loop conn))
+
+(define (hello-loop conn)
+  (ws-send! conn "Hello world!")
+  (sleep 2)
+  (hello-loop conn))  
 
 (serve/servlet (accept API-KEY)
                 handle-websockets

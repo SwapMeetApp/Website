@@ -9,6 +9,10 @@
 
 (struct book (title authors self-link isbn))
 
+(struct library (books) #:mutable)
+
+(define LIBRARY (library '()))
+
 ;; Styling
 (define (style-color color)
   (string-append "color:" color ";" "background-color:black;"))
@@ -62,7 +66,15 @@
              (form ((action
                      ,(embed/url (render-results-page API-KEY))))
                    (input ((name "search")))
-                   (input ((type "submit"))))))))
+                   (input ((type "submit"))))
+             (section 
+              (h2 ((style ,(style-color "yellow"))) "messages")
+              (div ((id "messages") (style "overflow-y:auto; height:6em;")))
+              (form ((action "javascript:void(0)"))
+                   (button ((id "send-message") (onclick "sendMessage()"))
+                    "send")
+                   (input ((id "chat") (placeholder "type your message")))) 
+              )))))
   (send/suspend/dispatch response-generator))
 
 (define (render-results-page API-KEY)
@@ -80,18 +92,27 @@
               ,@(map (lambda (t) `(li (a ((href ,(embed/url (book-selection-confirmation-page API-KEY t)))) ,(book-title t)))) titles-and-authors))))))
     (send/suspend/dispatch response-generator)))
 
+;; API-KEY book -> any!
+
 (define (book-selection-confirmation-page API-KEY book)
+  (set-library-books! LIBRARY (cons book (library-books LIBRARY)))
   (lambda (request)
+   (define (response-generator embed/url)  
     (response/xexpr
         `(html (head (title "results"))
             (body
              (h1 ((style ,(style-color "green")))"results")
              (ul ((style "margin:auto;"))
+              (li ,(string-append (book-title book) " - " (string-join (book-authors book) ", ") " - " (book-isbn book))))))))
+    (send/suspend/dispatch response-generator)))
 
-;; add html representation for the results
-;; use send suspend in combo with embed url
-             
-))))))             
+;; direct to browse page after confirmation
+
+;; create browsing page
+
+               
+
+
 
 (provide accept)   
  
