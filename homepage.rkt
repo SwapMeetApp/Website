@@ -89,27 +89,38 @@
             (body
              (h1 ((style ,(style-color "green")))"results")
              (ul ((style "margin:auto;")) 
-              ,@(map (lambda (t) `(li (a ((href ,(embed/url (book-selection-confirmation-page API-KEY t)))) ,(book-title t)))) titles-and-authors))))))
+              ,@(map (lambda (t) `(li (a ((href ,(embed/url (book-selection-confirmation-page API-KEY t)))) 
+               ,(book-title t)))) titles-and-authors))))))
     (send/suspend/dispatch response-generator)))
 
 ;; API-KEY book -> any!
 
 (define (book-selection-confirmation-page API-KEY book)
-  (set-library-books! LIBRARY (cons book (library-books LIBRARY)))
+  (lambda (request)
+   (set-library-books! LIBRARY (cons book (library-books LIBRARY)))
+   (define (response-generator embed/url)  
+    (response/xexpr
+        `(html (head (title "your book"))
+            (body
+             (h1 ((style ,(style-color "green")))"your book")
+             (ul ((style "margin:auto;"))
+              (li (a ((href ,(embed/url (browsing-page API-KEY LIBRARY)))) 
+               ,(string-append (book-title book) " - " (string-join (book-authors book) ", ") " - " (book-isbn book)))))))))
+    (send/suspend/dispatch response-generator)))
+
+(define (browsing-page API-KEY library)
   (lambda (request)
    (define (response-generator embed/url)  
     (response/xexpr
-        `(html (head (title "results"))
+        `(html (head (title "available items"))
             (body
-             (h1 ((style ,(style-color "green")))"results")
+             (h1 ((style ,(style-color "green")))"browse")
              (ul ((style "margin:auto;"))
-              (li ,(string-append (book-title book) " - " (string-join (book-authors book) ", ") " - " (book-isbn book))))))))
+               ,@(map (lambda (book)
+                 `(li ,(string-append (book-title book) " - " (string-join (book-authors book) ", ") " - " (book-isbn book)))) (library-books library)))))))
     (send/suspend/dispatch response-generator)))
 
-;; direct to browse page after confirmation
-
-;; create browsing page
-
+;; turn browsing catalog clickable
                
 
 

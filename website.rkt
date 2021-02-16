@@ -19,14 +19,24 @@
   [("--ssl-key") ssl-key "Path to the Key" (SSL-KEY ssl-key)]
   [("--port") port "Port" (PORT (string->number port))])
 
-(define (handle-websockets conn req)
-  (print (sync (ws-recv-evt conn)))
-  (hello-loop conn))
+(struct chatserver (connections) #:mutable)
 
-(define (hello-loop conn)
-  (ws-send! conn "Hello world!")
-  (sleep 2)
-  (hello-loop conn))  
+(define CHAT (chatserver '()))
+
+(define (handle-websockets conn req)
+ (set-chatserver-connections! CHAT (cons conn (chatserver-connections CHAT)))
+  (thread (lambda () 
+            (let loop ()
+             (sync (handle-evt (ws-recv-evt conn)
+                               (lambda (message)
+                                (if (eof-object? message)
+                                  (set-chatserver-connections! CHAT (remove conn (chatserver-connections CHAT)))
+                                  (begin (broadcast message) (loop))))))))))
+
+(define (broadcast message)
+  (for-each (lambda (c) (unless (ws-conn-closed? c) (ws-send! c message)) 
+            (chatserver-connections CHAT))))
+
 
 (serve/servlet (accept API-KEY)
                 handle-websockets
