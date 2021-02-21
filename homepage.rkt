@@ -4,23 +4,25 @@
 (require json)
 (require net/uri-codec)
 (require web-server/servlet)
+(require db)
+(require racket/list)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (struct book (title authors self-link isbn))
 
-(struct library (books) #:mutable)
-
-(define LIBRARY (library '()))
+; A library is a (db)
+; where db is a connection to a database
+(struct library (db))
 
 ;; Styling
 (define (style-color color)
   (string-append "color:" color ";" "background-color:black;"))
 
 ;; API-KEY (string) ->  [request -> response]
-(define (accept API-KEY)
+(define (accept API-KEY library)
   (lambda (request)
-    (render-home-page request API-KEY)))
+    (render-home-page request API-KEY library)))
  
 ; parse-search: bindings -> string
 ; Extracts a searchterm out of the bindings.
@@ -57,14 +59,14 @@
  
 ; render-home-page:  request -> doesn't return
 ; Consumes a request, and produces an HTML page
-(define (render-home-page request API-KEY)
+(define (render-home-page request API-KEY library)
   (define (response-generator embed/url)
     (response/xexpr
      `(html (head (title "Booksearch") (script ((src "/main.js"))))
             (body
              (h1 ((style ,(style-color "green")))"Booksearch")
              (form ((action
-                     ,(embed/url (render-results-page API-KEY))))
+                     ,(embed/url (render-results-page API-KEY library))))
                    (input ((name "search")))
                    (input ((type "submit"))))
              (section 
@@ -77,7 +79,7 @@
               )))))
   (send/suspend/dispatch response-generator))
 
-(define (render-results-page API-KEY)
+(define (render-results-page API-KEY library)
   (lambda (request)
     (define (response-generator embed/url)  
         (define a-search
@@ -89,22 +91,22 @@
             (body
              (h1 ((style ,(style-color "green")))"results")
              (ul ((style "margin:auto;")) 
-              ,@(map (lambda (t) `(li (a ((href ,(embed/url (book-selection-confirmation-page API-KEY t)))) 
+              ,@(map (lambda (t) `(li (a ((href ,(embed/url (book-selection-confirmation-page API-KEY library t)))) 
                ,(book-title t)))) titles-and-authors))))))
     (send/suspend/dispatch response-generator)))
 
 ;; API-KEY book -> any!
 
-(define (book-selection-confirmation-page API-KEY book)
+(define (book-selection-confirmation-page API-KEY library book)
   (lambda (request)
-   (set-library-books! LIBRARY (cons book (library-books LIBRARY)))
+   (library-insert-book! library (book-title book) (book-authors book) (book-self-link book) (book-isbn book))
    (define (response-generator embed/url)  
     (response/xexpr
         `(html (head (title "your book"))
             (body
              (h1 ((style ,(style-color "green")))"your book")
              (ul ((style "margin:auto;"))
-              (li (a ((href ,(embed/url (browsing-page API-KEY LIBRARY)))) 
+              (li (a ((href ,(embed/url (browsing-page API-KEY library)))) 
                ,(string-append (book-title book) " - " (string-join (book-authors book) ", ") " - " (book-isbn book)))))))))
     (send/suspend/dispatch response-generator)))
 
@@ -116,16 +118,57 @@
             (body
              (h1 ((style ,(style-color "green")))"browse")
              (ul ((style "margin:auto;"))
-               ,@(map (lambda (book)
-                 `(li ,(string-append (book-title book) " - " (string-join (book-authors book) ", ") " - " (book-isbn book)))) (library-books library)))))))
+               ,@(map (lambda (title)
+                        `(li ,title))
+                      (library-titles library)))))))
     (send/suspend/dispatch response-generator)))
 
-;; turn browsing catalog clickable
+;; library -> list-of string
+(define (library-titles library)
+  (query-list (library-db library)
+    "SELECT title FROM books"))
+
+;; turn browsing catalog clickable and take to item details page
                
+;; database implementation
+; initialize-db! : path? -> library?
+; Sets up a  database (if it doesn't exist)
+(define (initialize-db! home)
+    (define db (sqlite3-connect #:database home #:mode 'create))
+    (define l (library db))
+    (unless (table-exists? db "books")
+        (query-exec db
+         (string-append
+          "CREATE TABLE books "
+          " (id INTEGER PRIMARY KEY, title TEXT, self_link TEXT, isbn TEXT)")))
+    (unless (table-exists? db "authors")
+        (query-exec db
+         "CREATE TABLE authors (bid INTEGER, name TEXT)"))      
+    l)
+
+; library-insert-book!: library? string? string? string? string? -> void
+; Consumes a library and a book, adds the book at the top of the library.
+(define (library-insert-book! library title authors self-link isbn)
+  (let ((conn (library-db library)))
+    (call-with-transaction conn 
+   (lambda () 
+    (query-exec conn
+     "PRAGMA temp_store = 2; ")
+     (query-exec conn
+     "CREATE TEMP TABLE _variables(name TEXT PRIMARY KEY, value INTEGER);")
+     (query-exec conn
+     "INSERT INTO books (title, self_link, isbn) VALUES (?, ?, ?); "
+     title self-link isbn)
+     (query-exec conn
+     "INSERT INTO _variables (name, value) VALUES ('book', last_insert_rowid()); ")     
+    (for-each (lambda (author) 
+     (query-exec conn
+      "INSERT INTO authors SELECT value, ? FROM _variables WHERE name = 'book'; "
+      author)) authors)
+    (query-exec conn "DROP TABLE _variables;")))))  
 
 
-
-(provide accept)   
+(provide accept initialize-db!)   
  
 
 

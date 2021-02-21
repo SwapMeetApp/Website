@@ -5,6 +5,7 @@
 (require "homepage.rkt")
 (require net/rfc6455)
 
+(define DATABASE-PATH (make-parameter null))
 (define SSL? (make-parameter #t))
 (define SSL-CERT (make-parameter #f))
 (define SSL-KEY (make-parameter #f))
@@ -14,6 +15,8 @@
 (command-line 
   #:program "the website"
   #:once-each
+  [("-d" "--db-path") database-path "Path to the database"
+   (DATABASE-PATH database-path)]
   [("--no-ssl") "Disable SSL" (SSL? #f)]
   [("--ssl-cert") ssl-cert "Path to the Cert" (SSL-CERT ssl-cert)]
   [("--ssl-key") ssl-key "Path to the Key" (SSL-KEY ssl-key)]
@@ -38,7 +41,7 @@
             (chatserver-connections CHAT))))
 
 
-(serve/servlet (accept API-KEY)
+(serve/servlet (accept API-KEY (initialize-db! (string->path(DATABASE-PATH))))
                 handle-websockets
                #:launch-browser? #f
                #:listen-ip #f
