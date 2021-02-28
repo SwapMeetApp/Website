@@ -51,11 +51,12 @@
 ;;;;;;;;;;;;;
 ;; json -> book
 (define (parse-book v)
+ (define volume-info (hash-ref v 'volumeInfo))
   (book
-   (hash-ref (hash-ref v 'volumeInfo) 'title)
-   (hash-ref (hash-ref v 'volumeInfo) 'authors)
+   (hash-ref volume-info  'title)
+   (hash-ref volume-info  'authors (lambda () '()))
    (hash-ref v 'selfLink)
-   (hash-ref (first (hash-ref (hash-ref v 'volumeInfo) 'industryIdentifiers)) 'identifier)))
+   (hash-ref (first (hash-ref volume-info 'industryIdentifiers)) 'identifier)))
  
 ; render-home-page:  request -> doesn't return
 ; Consumes a request, and produces an HTML page
@@ -119,13 +120,35 @@
                (h1 ((style ,(style-color "green")))"browse")
                (ul ((style "margin:auto;"))
                    ,@(map (lambda (title)
-                            `(li ,title))
+                            `(li (a ((href ,(embed/url (available-item-details-page API-KEY library title)))) 
+                                    ,title)))
                           (library-titles library)))))))
     (send/suspend/dispatch response-generator)))
 
-;; need to process 2 lists at once?
-;; use a sql function?             
+(define (available-item-details-page API-KEY library title)
+  (lambda (request)
+    (define item (find-library-book library title)) 
+    (response/xexpr
+       `(html (head (title "item details"))
+              (body
+               (h1 ((style ,(style-color "green")))"item details")
+               ,(book-title item)
+               ,@(book-authors item)
+               ,(book-self-link item)
+               ,(book-isbn item)))))) 
 
+       
+
+
+;; library string -> book
+;; looks up a book by title in library
+(define (find-library-book library title)
+ (match
+  (query-row (library-db library)
+             "SELECT * from books where ? = books.title" title)
+   [(vector id title self_link isbn)
+    (book title (query-list (library-db library)
+      "SELECT authors.name from authors where ? = authors.bid" id) self_link isbn)]))          
 
 ;; library -> list-of string (titles)
 (define (library-titles library)
