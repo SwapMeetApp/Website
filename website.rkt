@@ -3,7 +3,7 @@
 (require racket/cmdline)
 (require "minimal.rkt")
 (require "homepage.rkt")
-(require net/rfc6455)
+(require "notifications.rkt")
 
 (define DATABASE-PATH (make-parameter null))
 (define SSL? (make-parameter #t))
@@ -22,23 +22,7 @@
   [("--ssl-key") ssl-key "Path to the Key" (SSL-KEY ssl-key)]
   [("--port") port "Port" (PORT (string->number port))])
 
-(struct chatserver (connections) #:mutable)
 
-(define CHAT (chatserver '()))
-
-(define (handle-websockets conn req)
- (set-chatserver-connections! CHAT (cons conn (chatserver-connections CHAT)))
-  (thread (lambda () 
-            (let loop ()
-             (sync (handle-evt (ws-recv-evt conn)
-                               (lambda (message)
-                                (if (eof-object? message)
-                                  (set-chatserver-connections! CHAT (remove conn (chatserver-connections CHAT)))
-                                  (begin (broadcast message) (loop))))))))))
-
-(define (broadcast message)
-  (for-each (lambda (c) (unless (ws-conn-closed? c) (ws-send! c message)) 
-            (chatserver-connections CHAT))))
 
 
 (serve/servlet (accept API-KEY (initialize-db! (string->path(DATABASE-PATH))))
