@@ -6,6 +6,7 @@
 (require web-server/servlet)
 (require db)
 (require racket/list)
+(require uuid)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -51,7 +52,7 @@
 ;;;;;;;;;;;;;
 ;; json -> book
 (define (parse-book v)
- (define volume-info (hash-ref v 'volumeInfo))
+  (define volume-info (hash-ref v 'volumeInfo))
   (book
    (hash-ref volume-info  'title)
    (hash-ref volume-info  'authors (lambda () '()))
@@ -119,41 +120,42 @@
               (body
                (h1 ((style ,(style-color "green")))"browse")
                (ul ((style "margin:auto;"))
-                   ,@(map (lambda (title)
-                            `(li (a ((href ,(embed/url (available-item-details-page API-KEY library title)))) 
-                                    ,title)))
+                   ,@(map (lambda (row)
+                            (match row
+                             [(vector title book-id)
+                            `(li (a ((href ,(embed/url (available-item-details-page API-KEY library book-id)))) 
+                                    ,title))]))
                           (library-titles library)))))))
     (send/suspend/dispatch response-generator)))
 
-(define (available-item-details-page API-KEY library title)
+(define (available-item-details-page API-KEY library book-id)
   (lambda (request)
-    (define item (find-library-book library title)) 
+    (define item (find-library-book library book-id)) 
     (response/xexpr
-       `(html (head (title "item details"))
-              (body
-               (h1 ((style ,(style-color "green")))"item details")
-               ,(book-title item)
-               ,@(book-authors item)
-               ,(book-self-link item)
-               ,(book-isbn item)))))) 
+     `(html (head (title "item details"))
+            (body
+             (h1 ((style ,(style-color "green")))"item details")
+             ,(book-title item)
+             ,@(book-authors item)
+             ,(book-self-link item)
+             ,(book-isbn item)))))) 
 
        
 
 
 ;; library string -> book
 ;; looks up a book by title in library
-(define (find-library-book library title)
- (match
-  (query-row (library-db library)
-             "SELECT * from books where ? = books.title" title)
-   [(vector id title self_link isbn)
-    (book title (query-list (library-db library)
-      "SELECT authors.name from authors where ? = authors.bid" id) self_link isbn)]))          
+(define (find-library-book library book-id)
+  (match
+      (query-row (library-db library)
+                 "SELECT * from books where ? = books.id" book-id)
+    [(vector id title self_link isbn)
+     (book title (library-authors-for-book library id) self_link isbn)]))          
 
-;; library -> list-of string (titles)
+;; library -> list-of vector (string, id)
 (define (library-titles library)
-  (query-list (library-db library)
-              "SELECT title FROM books"))
+  (query-rows (library-db library)
+              "SELECT title, id FROM books"))
 
 ;; turn browsing catalog clickable and take to item details page
                
@@ -167,11 +169,84 @@
     (query-exec db
                 (string-append
                  "CREATE TABLE books "
-                 " (id INTEGER PRIMARY KEY, title TEXT, self_link TEXT, isbn TEXT)")))
+                 " (id TEXT PRIMARY KEY, title TEXT, self_link TEXT, isbn TEXT)")))
   (unless (table-exists? db "authors")
     (query-exec db
-                "CREATE TABLE authors (bid INTEGER, name TEXT)"))      
+                "CREATE TABLE authors (bid INTEGER, name TEXT)"))
+  (unless (table-exists? db "version")
+    (query-exec db
+                (string-append
+                 "CREATE TABLE version "
+                 " (version INTEGER)")))
+  (migrate db)                                  
   l)
+
+
+
+(define (library-authors-for-book library id)
+  (query-list (library-db library)
+              "SELECT authors.name from authors where ? = authors.bid" id))
+
+(define (unique-id-for-books db)
+  (query-exec db
+              "PRAGMA foreign_keys=OFF")
+  (call-with-transaction
+   db
+   (lambda () 
+     (query-exec db
+                 "CREATE TABLE new_books (id TEXT PRIMARY KEY, title TEXT, self_link TEXT, isbn TEXT)")
+     (query-exec db
+                 "CREATE TABLE new_authors (bid TEXT, name TEXT, FOREIGN KEY(bid) REFERENCES books(id))") 
+     (for-each 
+      (lambda (row)
+        (match row
+          [(vector id title self_link isbn) 
+           (let ((new-id (uuid-string)))
+             (query-exec db
+                         "INSERT INTO new_books (id, title, self_link, isbn) VALUES(?, ?, ?, ?)" new-id title self_link isbn)
+             (for-each
+              (lambda (name)
+                (query-exec db
+                            "INSERT into new_authors (bid, name) VALUES(?, ?)" new-id name))
+              (query-list db 
+                          "SELECT authors.name FROM authors where authors.bid = ?" id)))]))
+      (query-rows db "SELECT * FROM books"))
+     (query-exec db "DROP TABLE books")
+     (query-exec db "DROP TABLE authors")
+     (query-exec db "ALTER TABLE new_books RENAME TO books")
+     (query-exec db "ALTER TABLE new_authors RENAME TO authors")))
+  (query-exec db "PRAGMA foreign_keys=ON"))         
+
+(define migrations `((0 . ,unique-id-for-books)))
+
+(define (migrate db)
+  (define current-version 
+    (query-maybe-row db 
+                     "SELECT version FROM version ORDER BY version DESC LIMIT 1"))
+  (define migrations-to-run           
+    (if 
+     current-version 
+     (take-after 
+      (lambda (migration)
+        (equal? (car migration) current-version))
+      migrations)
+     migrations))
+  (for-each (lambda (m) 
+              ((cdr m) db)) migrations-to-run)
+  (define most-recent 
+      (with-handlers ([exn:fail:contract? (lambda (e) #false)])
+        (car(last migrations-to-run))))
+  (when most-recent  
+   (query-exec db
+   "INSERT INTO version(version) VALUES(?)" most-recent)))    
+  
+(define (take-after func l)
+  (cond 
+    [(empty? l) '()]
+    [(func (first l)) (rest l)]
+    [else 
+     (take-after func (rest l))]))
+  
 
 ; library-insert-book!: library? string? string? string? string? -> void
 ; Consumes a library and a book, adds the book at the top of the library.
