@@ -3,6 +3,7 @@
 (require "minimal.rkt")
 (require "homepage.rkt")
 (require "notifications.rkt")
+(require "database.rkt")
 
 (define (start)
   (serve/servlet (accept (call-with-input-file ".env" port->string)

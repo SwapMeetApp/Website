@@ -4,6 +4,7 @@
 (require "minimal.rkt")
 (require "homepage.rkt")
 (require "notifications.rkt")
+(require "database.rkt")
 
 (define DATABASE-PATH (make-parameter null))
 (define SSL? (make-parameter #t))
@@ -21,9 +22,6 @@
   [("--ssl-cert") ssl-cert "Path to the Cert" (SSL-CERT ssl-cert)]
   [("--ssl-key") ssl-key "Path to the Key" (SSL-KEY ssl-key)]
   [("--port") port "Port" (PORT (string->number port))])
-
-
-
 
 (serve/servlet (accept API-KEY (initialize-db! (string->path(DATABASE-PATH))))
                 handle-websockets
