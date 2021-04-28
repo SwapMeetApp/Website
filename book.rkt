@@ -2,9 +2,10 @@
 (require net/http-client)
 (require json)
 (require db)
+(require uuid)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(struct book (title authors self-link isbn))
+(struct book (title authors self-link isbn id))
 
 ; A library is a (db)
 ; where db is a connection to a database
@@ -33,7 +34,8 @@
    (hash-ref volume-info  'title)
    (hash-ref volume-info  'authors (lambda () '()))
    (hash-ref v 'selfLink)
-   (hash-ref (first (hash-ref volume-info 'industryIdentifiers)) 'identifier)))
+   (hash-ref (first (hash-ref volume-info 'industryIdentifiers)) 'identifier)
+   (uuid-string)))
 
 
 ;; library string -> book
@@ -43,7 +45,7 @@
       (query-row (library-db library)
                  "SELECT * from books where ? = books.id" book-id)
     [(vector id title self_link isbn)
-     (book title (library-authors-for-book library id) self_link isbn)]))          
+     (book title (library-authors-for-book library id) self_link isbn id)]))          
 
 ;; library -> list-of vector (string, id)
 (define (library-titles library)
@@ -56,24 +58,17 @@
 
 ; library-insert-book!: library? string? string? string? string? -> void
 ; Consumes a library and a book, adds the book at the top of the library.
-(define (library-insert-book! library title authors self-link isbn)
+(define (library-insert-book! library book)
   (let ((conn (library-db library)))
     (call-with-transaction
      conn 
-     (lambda () 
+     (lambda ()     
        (query-exec conn
-                   "PRAGMA temp_store = 2; ")
-       (query-exec conn
-                   "CREATE TEMP TABLE _variables(name TEXT PRIMARY KEY, value INTEGER);")
-       (query-exec conn
-                   "INSERT INTO books (title, self_link, isbn) VALUES (?, ?, ?); "
-                   title self-link isbn)
-       (query-exec conn
-                   "INSERT INTO _variables (name, value) VALUES ('book', last_insert_rowid()); ")     
+                   "INSERT INTO books (title, self_link, isbn, id) VALUES (?, ?, ?, ?); "
+                   (book-title book) (book-self-link book) (book-isbn book) (book-id book))     
        (for-each (lambda (author) 
                    (query-exec conn
-                               "INSERT INTO authors SELECT value, ? FROM _variables WHERE name = 'book'; "
-                               author)) authors)
-       (query-exec conn "DROP TABLE _variables;"))))) 
+                               "INSERT INTO authors (bid, name) VALUES (?, ?)" (book-id book)
+                               author)) (book-authors book)))))) 
 
 (provide (all-defined-out))                                    

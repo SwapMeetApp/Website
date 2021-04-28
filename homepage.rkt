@@ -64,7 +64,7 @@
 ;; API-KEY book -> any!
 (define (book-selection-confirmation-page API-KEY library book)
   (lambda (request)
-    (library-insert-book! library (book-title book) (book-authors book) (book-self-link book) (book-isbn book))
+    (library-insert-book! library book)
     (define (response-generator embed/url)  
       (response/xexpr
        `(html (head (title "your book"))
