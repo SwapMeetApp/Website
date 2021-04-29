@@ -9,6 +9,8 @@
 (define (initialize-db! home)
   (define db (sqlite3-connect #:database home #:mode 'create))
   (define l (library db))
+  (query-exec db
+    "PRAGMA foreign_keys = ON")
   (unless (table-exists? db "books")
     (query-exec db
                 (string-append
@@ -22,8 +24,15 @@
                 (string-append
                  "CREATE TABLE version "
                  " (version INTEGER)")))
+  (unless (table-exists? db "trades")
+    (query-exec db
+                (string-append
+                "CREATE TABLE trades "
+                " (id TEXT PRIMARY KEY, item1 TEXT, item2 TEXT, "
+                "FOREIGN KEY (item1) REFERENCES books (id), FOREIGN KEY (item2) REFERENCES books (id))")))
   (migrate db)                                  
   l)
+
 
 
 (define (unique-id-for-books db)
