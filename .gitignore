@@ -4,3 +4,4 @@ sqlite-*
 *.dep
 *.zo
 .env
+settings.json
