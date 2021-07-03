@@ -16,17 +16,17 @@
 
 (struct trade [side1 side2])
 
-;; json -> [trade-of uuid]
+;; json -> [Or [trade-of uuid] (List Symbol String)]
 (define (parse-trade json)
  (with-handlers ((exn:fail:contract? 
-  (lambda (e) (raise-user-error "expect object with side1 and side2" json))))
+  (lambda (e) (list 'unexpected-json (format "expect object with side1 and side2: ~a" json)))))
   (trade
    (match (hash-ref json 'side1)
     [(? uuid-string? side1) side1]
-    [ x (raise-user-error "expected uuid" x)])
+    [ x (list 'not-uuid (format "expected uuid: ~a" x))])
    (match (hash-ref json 'side2)
     [(? uuid-string? side2) side2]
-    [ x (raise-user-error "expected uuid" x)])))) 
+    [ x (list 'not-uuid (format "expected uuid: ~a" x))])))) 
 
 ;; this is CRUD for a trade
 ;; puts the trade into the database

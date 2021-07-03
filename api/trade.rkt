@@ -2,6 +2,7 @@
 (require "../trade.rkt")
 (require web-server/dispatch)
 (require web-server/servlet)
+(require web-server/http)
 (require uuid)
 (require json)
 
@@ -18,18 +19,29 @@
 (define (API library)
  (define-values (trade-dispatch trade-url)
     (dispatch-rules
-      [("trade" (string-arg)) #:method "get" (get-trade library)]))
+      [("trade" (string-arg)) #:method "get" (get-trade library)]
+      [("trade") #:method "post" (create-trade library)]))
+      ;; methods rest conventions
  trade-dispatch)
 
-;; request String -> any
+;; library -> request String -> any
 (define (get-trade library)
  (lambda (request trade-id)
 ;; FIX ME. handle non-uuid strings
     ;(uuid-string? trade-id)
-      (response/jsexpr
        (match (library-find-trade trade-id library)
-        [#false "not found"]
-        [X (trade->jsexpr X)]))))
+        [#false (response/full
+ 404 #"Not Found" (current-seconds) #"application/json"
+ '()
+ (list (jsexpr->bytes (hash 'message "not found"))))]
+        [X (response/jsexpr (trade->jsexpr X))])))
 
+;; library -> request -> any
+(define (create-trade library)
+  (lambda (request)
+    (match (request-post-data/raw request)
+    [#false "fix me"]
+    [body (response/jsexpr "to do")])))
+     ; (match (parse-trade(bytes->jsexpr body))
                        
 (provide API)
