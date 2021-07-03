@@ -79,6 +79,7 @@
 (define (serve/servlet
          start
          ws-handler
+         api-handler
          #:connection-close?
          [connection-close? #f]
          #:command-line?
@@ -160,6 +161,18 @@
                                (log:log-format->format log-format)
                                log-format)
                              #:log-path log-file))
+     (dispatch/servlet 
+      api-handler
+      #:regexp #rx""
+      #:stateless? #true
+      #:stuffer default-stuffer
+      #:current-directory servlet-current-directory
+      #:manager (make-threshold-LRU-manager
+           (lambda (request)
+             (response/jsexpr
+             "request timed out"))
+           (* 128 1024 1024)))
+
      (dispatch/servlet
       start
       #:regexp servlet-regexp
@@ -187,8 +200,9 @@
              #:path->mime-type (make-path->mime-type mime-types-path)
              #:indices (list "index.html" "index.htm")))
           extra-files-paths)
-     (filter:make websocket-regexp (websocket:make-general-websockets-dispatcher ws-handler))     
+     (filter:make websocket-regexp (websocket:make-general-websockets-dispatcher ws-handler))
      (lift:make (compose any->response file-not-found-responder))))
+     
   (serve/launch/wait
    dispatcher
    #:connection-close? connection-close?

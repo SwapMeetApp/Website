@@ -5,6 +5,7 @@
 (require "homepage.rkt")
 (require "notifications.rkt")
 (require "database.rkt")
+(require (prefix-in trade: "./api/trade.rkt"))
 
 (define DATABASE-PATH (make-parameter null))
 (define SSL? (make-parameter #t))
@@ -23,8 +24,11 @@
   [("--ssl-key") ssl-key "Path to the Key" (SSL-KEY ssl-key)]
   [("--port") port "Port" (PORT (string->number port))])
 
-(serve/servlet (accept API-KEY (initialize-db! (string->path(DATABASE-PATH))))
+(define library (initialize-db! (string->path(DATABASE-PATH))))
+
+(serve/servlet (accept API-KEY library)
                 handle-websockets
+                (trade:API library)
                #:launch-browser? #f
                #:listen-ip #f
                #:port (PORT)
