@@ -34,7 +34,7 @@
 (define (library-insert-trade! trade library)
   (let ((conn (library-db library)))
     (query-maybe-row conn
-                     "INSERT INTO trades (id, item1, item2) VALUES (?, ?, ?) RETURNING *"
+                     "INSERT INTO trades (id, item1, item2) VALUES ($1, $2, $3) RETURNING *"
                      (uuid-string) (trade-side1 trade) (trade-side2 trade))))
 
 ;; String library -> [Maybe trade] 
@@ -42,7 +42,7 @@
   (let ((conn (library-db library)))
     (match
         (query-maybe-row conn
-                         "SELECT trades.item1, trades.item2 from trades WHERE ? = trades.id" trade-id)
+                         "SELECT trades.item1, trades.item2 from trades WHERE $1 = trades.id" trade-id)
       [(vector id item1 item2) 
        (trade (find-library-book library item1) (find-library-book library item2))]
       [ _ #false])))
@@ -51,14 +51,14 @@
 (define (library-update-trade! trade-id trade library)
   (let ((conn (library-db library)))
     (query-maybe-row conn
-                "UPDATE trades SET item1 = ?, item2 = ? WHERE ? = trades.id RETURNING id"
+                "UPDATE trades SET item1 = $1, item2 = $2 WHERE $3 = trades.id RETURNING id"
                 (trade-side1 trade) (trade-side2 trade) trade-id)))
 
 ;; String library -> [Maybe uuid-string?]
 (define (library-delete-trade! trade-id library)
   (let ((conn (library-db library)))
     (query-maybe-row conn
-                     "DELETE FROM trades WHERE ? = trades.id RETURNING id"
+                     "DELETE FROM trades WHERE $1 = trades.id RETURNING id"
                      trade-id)))
 
 (provide (all-defined-out))

@@ -43,7 +43,7 @@
 (define (find-library-book library book-id)
   (match
       (query-row (library-db library)
-                 "SELECT * from books where ? = books.id" book-id)
+                 "SELECT * from books where $1 = books.id" book-id)
     [(vector id title self_link isbn)
      (book title (library-authors-for-book library id) self_link isbn id)]))          
 
@@ -53,7 +53,7 @@
               "SELECT title, id FROM books"))
 (define (library-authors-for-book library id)
   (query-list (library-db library)
-              "SELECT authors.name from authors where ? = authors.bid" id))
+              "SELECT authors.name from authors where $1 = authors.bid" id))
 
 
 ; library-insert-book!: library? string? string? string? string? -> void
@@ -64,11 +64,11 @@
      conn 
      (lambda ()     
        (query-exec conn
-                   "INSERT INTO books (title, self_link, isbn, id) VALUES (?, ?, ?, ?); "
+                   "INSERT INTO books (title, self_link, isbn, id) VALUES ($1, $2, $3, $4); "
                    (book-title book) (book-self-link book) (book-isbn book) (book-id book))     
        (for-each (lambda (author) 
                    (query-exec conn
-                               "INSERT INTO authors (bid, name) VALUES (?, ?)" (book-id book)
+                               "INSERT INTO authors (bid, name) VALUES ($1, $2)" (book-id book)
                                author)) (book-authors book)))))) 
 
-(provide (all-defined-out))                                    
+(provide (all-defined-out))           

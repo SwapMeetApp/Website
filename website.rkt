@@ -7,7 +7,8 @@
 (require "database.rkt")
 (require (prefix-in trade: "./api/trade.rkt"))
 
-(define DATABASE-PATH (make-parameter null))
+(define PG-PASSWORD (getenv "PG_PASSWORD"))
+(define PG-HOST (make-parameter (getenv "PG_HOST")))
 (define SSL? (make-parameter #t))
 (define SSL-CERT (make-parameter #f))
 (define SSL-KEY (make-parameter #f))
@@ -17,14 +18,14 @@
 (command-line 
   #:program "the website"
   #:once-each
-  [("-d" "--db-path") database-path "Path to the database"
-   (DATABASE-PATH database-path)]
+  [("--pg-host") pg-host "Host to the database"
+   (PG-HOST pg-host)]
   [("--no-ssl") "Disable SSL" (SSL? #f)]
   [("--ssl-cert") ssl-cert "Path to the Cert" (SSL-CERT ssl-cert)]
   [("--ssl-key") ssl-key "Path to the Key" (SSL-KEY ssl-key)]
   [("--port") port "Port" (PORT (string->number port))])
 
-(define library (initialize-db! (string->path(DATABASE-PATH))))
+(define library (initialize-db! PG-PASSWORD (PG-HOST)))
 
 (serve/servlet (accept API-KEY library)
                 handle-websockets

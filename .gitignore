@@ -5,3 +5,4 @@ sqlite-*
 *.zo
 .env
 settings.json
+swap.dump
