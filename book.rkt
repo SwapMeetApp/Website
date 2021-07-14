@@ -3,6 +3,7 @@
 (require json)
 (require db)
 (require uuid)
+(require db/util/postgresql)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (struct book (title authors self-link isbn id))
@@ -43,18 +44,19 @@
 (define (find-library-book library book-id)
   (match
       (query-row (library-db library)
-                 "SELECT * from books where $1 = books.id" book-id)
-    [(vector id title self_link isbn)
-     (book title (library-authors-for-book library id) self_link isbn id)]))          
+                 (string-append 
+                 "SELECT books.*, array_agg(authors.name) "
+                    "FROM books "
+                      "INNER JOIN authors ON books.id = authors.bid "
+                      "AND $1 = books.id "
+                    "GROUP BY books.id") book-id)
+    [(vector id title self_link isbn authors)
+     (book title (pg-array->list authors) self_link isbn id)]))          
 
 ;; library -> list-of vector (string, id)
 (define (library-titles library)
   (query-rows (library-db library)
               "SELECT title, id FROM books"))
-(define (library-authors-for-book library id)
-  (query-list (library-db library)
-              "SELECT authors.name from authors where $1 = authors.bid" id))
-
 
 ; library-insert-book!: library? string? string? string? string? -> void
 ; Consumes a library and a book, adds the book at the top of the library.
