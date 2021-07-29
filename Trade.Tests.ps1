@@ -1,13 +1,29 @@
 Describe 'trade api' {
         BeforeAll {
                 try {
-                        docker run -it -p 5432:5432 --rm --env POSTGRES_PASSWORD='hello' postgres:13.3-alpine 
+                        $existing = docker container ls -a -f ancestor=postgres:13.3-alpine --format "{{json .}}" | ConvertFrom-Json
+                        docker container start $existing[0].ID
                 } catch {
+                        docker run -it -p 5432:5432 --rm --env POSTGRES_PASSWORD='hello' postgres:13.3-alpine 
                 }
-                $Env:API_KEY=(Get-Content .env)
-                $Env:PG_PASSWORD="hello"
-                $Env:PG_HOST="localhost"
-                Start-Job -ScriptBlock { racket website.rkt --no-ssl --port 8000 }
+                $Env:API_KEY = (Get-Content .env)
+                $Env:PG_PASSWORD = "hello"
+                $Env:PG_HOST = "localhost"
+                $serverlog = New-TemporaryFile
+                $serverjob = Start-Job -ScriptBlock { Set-Location $using:PWD; racket website.rkt --no-ssl --port 8000 }
+        }
+        AfterAll {
+                Remove-Job -Force $serverjob
+        }
+        It 'starts up' { 
+                $start = (Get-Date)
+                while (((Get-Date) - $start).TotalSeconds -le 30.0) {
+                        if (Receive-Job -Keep $serverjob | Select-String -Pattern  "Your Web application is running at"){
+                                break
+                        }
+                }
+                Receive-Job -Keep $serverjob | Select-String -Pattern  "Your Web application is running at" | Should Match "Your Web application is running at"
+                ((Get-Date) - $start).TotalSeconds | Should BeLessThan 30.0
         }
 
         It 'creates a trade' {
