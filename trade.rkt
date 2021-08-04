@@ -33,32 +33,38 @@
 ;; [Trade-of uuid] -> [Maybe uuid-string?]
 (define (library-insert-trade! trade library)
   (let ((conn (library-db library)))
-    (query-maybe-row conn
-                     "INSERT INTO trades (id, item1, item2) VALUES ($1, $2, $3) RETURNING *"
-                     (uuid-string) (trade-side1 trade) (trade-side2 trade))))
+    (match (query-maybe-row conn
+                            "INSERT INTO trades (id, item1, item2) VALUES ($1, $2, $3) RETURNING id"
+                            (uuid-string) (trade-side1 trade) (trade-side2 trade))
+      [#false #false]
+      [(vector id) id])))
+
 
 ;; String library -> [Maybe trade] 
 (define (library-find-trade! trade-id library)
   (let ((conn (library-db library)))
-    (match
-        (query-maybe-row conn
-                         "SELECT trades.item1, trades.item2 from trades WHERE $1 = trades.id" trade-id)
-      [(vector id item1 item2) 
-       (trade (find-library-book library item1) (find-library-book library item2))]
+    (match (query-maybe-row conn
+                            "SELECT trades.item1, trades.item2 from trades WHERE $1 = trades.id" trade-id)
+      [(vector item1 item2) 
+       (trade item1 item2)]
       [ _ #false])))
 
 ;; String trade library -> [Maybe uuid-string?]
 (define (library-update-trade! trade-id trade library)
   (let ((conn (library-db library)))
-    (query-maybe-row conn
-                "UPDATE trades SET item1 = $1, item2 = $2 WHERE $3 = trades.id RETURNING id"
-                (trade-side1 trade) (trade-side2 trade) trade-id)))
+    (match (query-maybe-row conn
+                            "UPDATE trades SET item1 = $1, item2 = $2 WHERE $3 = trades.id RETURNING id"
+                            (trade-side1 trade) (trade-side2 trade) trade-id)
+      [#false #false]
+      [(vector id) id])))
 
 ;; String library -> [Maybe uuid-string?]
 (define (library-delete-trade! trade-id library)
   (let ((conn (library-db library)))
-    (query-maybe-row conn
-                     "DELETE FROM trades WHERE $1 = trades.id RETURNING id"
-                     trade-id)))
+    (match (query-maybe-row conn
+                            "DELETE FROM trades WHERE $1 = trades.id RETURNING id"
+                            trade-id)
+      [#false #false]
+      [(vector id) id])))              
 
 (provide (all-defined-out))

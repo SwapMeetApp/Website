@@ -6,13 +6,17 @@ Describe 'trade api' {
                 } catch {
                         docker run -it -p 5432:5432 --rm --env POSTGRES_PASSWORD='hello' postgres:13.3-alpine 
                 }
-                $Env:API_KEY = (Get-Content .env)
-                $Env:PG_PASSWORD = "hello"
-                $Env:PG_HOST = "localhost"
-                $serverlog = New-TemporaryFile
-                $serverjob = Start-Job -ScriptBlock { Set-Location $using:PWD; racket website.rkt --no-ssl --port 8000 }
+                $testcase = '{"side1":"7dbddfa7-9c1d-4c7a-ad71-4f04a993bfc6" , "side2": "83f5e712-6f82-4685-9f23-fe9d3a1aee92"}' 
+                $serverjob = Start-Job -ScriptBlock {
+                        Set-Location $using:PWD
+                        $Env:API_KEY = (Get-Content .env)
+                        $Env:PG_PASSWORD = "hello"
+                        $Env:PG_HOST = "localhost"
+                        racket website.rkt --no-ssl --port 8000 
+                }
         }
         AfterAll {
+                Write-Host (Receive-Job $serverjob) 
                 Remove-Job -Force $serverjob
         }
         It 'starts up' { 
@@ -22,12 +26,21 @@ Describe 'trade api' {
                                 break
                         }
                 }
-                Receive-Job -Keep $serverjob | Select-String -Pattern  "Your Web application is running at" | Should Match "Your Web application is running at"
-                ((Get-Date) - $start).TotalSeconds | Should BeLessThan 30.0
+                Receive-Job -Keep $serverjob | Select-String -Pattern  "Your Web application is running at" | Should -Match "Your Web application is running at"
+                ((Get-Date) - $start).TotalSeconds | Should -BeLessThan 30.0
         }
 
         It 'creates a trade' {
-                $newTrade = Invoke-WebRequest -Method POST -Body '{"side1":"7dbddfa7-9c1d-4c7a-ad71-4f04a993bfc6" , "side2": "83f5e712-6f82-4685-9f23-fe9d3a1aee92"}' http://localhost:8000/trade
-                echo $newTrade
+                $newTrade = Invoke-WebRequest -Method POST -Body $testcase http://localhost:8000/trade
+                $uuidString = $newTrade.Content | ConvertFrom-Json 
+                $script:created = New-Object -TypeName System.Guid -ArgumentList $uuidString 
+        }
+        
+        It 'reads a trade' {
+                $script:created | Should -Not -Be $null
+                $uri = "http://localhost:8000/trade/$script:created"
+                $existingTrade = (Invoke-WebRequest $uri).Content | ConvertFrom-Json | ConvertTo-Json
+                $expected = ConvertFrom-Json $testcase | ConvertTo-Json
+                $existingTrade | Should -BeExactly $expected
         }
 }

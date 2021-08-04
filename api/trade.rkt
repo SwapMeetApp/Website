@@ -59,6 +59,10 @@
          [#false (response/error 404 #"Not Found" "not found")]
          [trade (response/jsexpr (trade->jsexpr trade))])])))
 
+;; fix me looks like create trade
+;; test suite for powershell for api
+;; watch a talk
+;; db join finish book exercise
 ;; library -> request String -> any
 (define (update-trade! library)
   (lambda (request trade-id)
@@ -76,7 +80,7 @@
       [#false (response/error 400 #"Bad Request" "invalid trade-id")]
       [#true
        (match (library-delete-trade! trade-id library)
-         [#false (response/error 404 #"Not Found" "not found")]
-         [id (response/jsexpr id)])])))
-                      
+	 [#false (response/error 404 #"Not Found" "not found")]
+	 [id (response/jsexpr id)])])))
+
 (provide API)
