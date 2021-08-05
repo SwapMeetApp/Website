@@ -59,19 +59,25 @@
          [#false (response/error 404 #"Not Found" "not found")]
          [trade (response/jsexpr (trade->jsexpr trade))])])))
 
-;; fix me looks like create trade
-;; test suite for powershell for api
-;; watch a talk
-;; db join finish book exercise
 ;; library -> request String -> any
 (define (update-trade! library)
   (lambda (request trade-id)
     (match (uuid-string? trade-id)
       [#false (response/error 400 #"Bad Request" "invalid trade-id")]
       [#true
-       (match (library-update-trade! trade-id library)
-         [#false (response/error 404 #"Not Found" "not found")]
-         [id (response/jsexpr id)])])))
+       (match (request-post-data/raw request)
+         [#false (response/error 400 #"Bad Request" "empty body")]
+         [body
+           (let ((json (bytes->jsexpr body)))
+             (if
+               (jsexpr? json)
+               (match (parse-trade json)
+                 [(? string? error-message) (response/error 400 #"Bad Request" error-message)]
+                 [trade
+                   (match (library-update-trade! trade-id trade library)
+                     [#false (response/error 404 #"Not Found" "not found")]
+                     [id (response/jsexpr id)])])
+               (response/error 400 #"Bad Request" "invalid json")))])])))
 
 ;; library -> request String -> any
 (define (delete-trade! library)

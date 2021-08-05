@@ -43,4 +43,17 @@ Describe 'trade api' {
                 $expected = ConvertFrom-Json $testcase | ConvertTo-Json
                 $existingTrade | Should -BeExactly $expected
         }
+        It 'updates a trade' {
+                $existingTrade = ConvertFrom-Json $testcase
+                $updatedTrade = ConvertTo-Json @{side1 = $existingTrade.side2; side2 = $existingTrade.side1}
+                $actualTrade = Invoke-WebRequest -Method PUT -Body $updatedTrade http://localhost:8000/trade/$script:created
+                $uuidString = $actualTrade.Content | ConvertFrom-Json
+                $script:created | Should -Be $uuidString
+        }
+        It 'deletes a trade' {
+                $script:created | Should -Not -Be $null
+                $uri = "http://localhost:8000/trade/$script:created"
+                $deletedTrade = (Invoke-WebRequest -Method DELETE $uri).Content | ConvertFrom-Json
+                $script:created | Should -Be $deletedTrade
+        }
 }
