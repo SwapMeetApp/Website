@@ -37,12 +37,21 @@
 (define (unique-id-for-books db)
   (println "skipping unique-id-for-books"))         
 
-(define migrations `((0 . ,unique-id-for-books)))
+(define (state-for-trades db)
+  (query-exec db
+    (string-append "ALTER TABLE trades ADD COLUMN state TEXT NOT NULL DEFAULT 'initiated' " 
+      "CONSTRAINT valid_states CHECK (state = 'initiated' OR state = 'accepted' OR state = 'completed') ")))
+
+(define migrations `(
+  (0 . ,unique-id-for-books)
+  (1 . ,state-for-trades)))
 
 (define (migrate db)
   (define current-version 
-    (query-maybe-row db 
-                     "SELECT version FROM version ORDER BY version DESC LIMIT 1"))
+    (match (query-maybe-row db 
+                     "SELECT version FROM version ORDER BY version DESC LIMIT 1")
+      [(vector v) v]
+      [x x]))
   (define migrations-to-run           
     (if 
      current-version 
@@ -51,6 +60,7 @@
         (equal? (car migration) current-version))
       migrations)
      migrations))
+    (println migrations-to-run) 
   (for-each (lambda (m) 
               ((cdr m) db)) migrations-to-run)
   (define most-recent 
