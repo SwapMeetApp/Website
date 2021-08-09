@@ -131,7 +131,7 @@
          #:file-not-found-responder
          [file-not-found-responder
           (gen-file-not-found-responder
-           (build-path server-root-path "conf" "not-found.html"))]
+           (build-path server-root-path "static" "not-found.html"))]
          #:servlet-loading-responder
          [responders-servlet-loading servlet-loading-responder]
          #:servlet-responder

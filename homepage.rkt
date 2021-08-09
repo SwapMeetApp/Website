@@ -71,11 +71,11 @@
               (body
                (h1 ((style ,(style-color "green")))"your book")
                (ul ((style "margin:auto;"))
-                   (li (a ((href ,(embed/url (browsing-page API-KEY library)))) 
+                   (li (a ((href ,(embed/url (browsing-page API-KEY library book)))) 
                           ,(string-append (book-title book) " - " (string-join (book-authors book) ", ") " - " (book-isbn book)))))))))
     (send/suspend/dispatch response-generator)))
 
-(define (browsing-page API-KEY library)
+(define (browsing-page API-KEY library owned-book)
   (lambda (request)
     (define (response-generator embed/url)  
       (response/xexpr
@@ -86,21 +86,47 @@
                    ,@(map (lambda (row)
                             (match row
                              [(vector title book-id)
-                            `(li (a ((href ,(embed/url (available-item-details-page API-KEY library book-id)))) 
+                            `(li (a ((href ,(embed/url (available-item-details-page API-KEY library owned-book book-id)))) 
                                     ,title))]))
                           (library-titles library)))))))
     (send/suspend/dispatch response-generator)))
 
-(define (available-item-details-page API-KEY library book-id)
+(define (book-details book)
+  `(section
+              (h2 ,(book-title book))
+              (p ,@(book-authors book))
+              (p ,(book-isbn book))))
+
+(define (nav-bar API-KEY library embed/url owned-book title)
+  `(div ((style ,(style-color "green"))) 
+               (h1 ((style "display: inline-block; margin-right: 1rem;")) ,title)
+               (span ((style "margin-right: 1rem;"))
+                (a ((href ,(embed/url (ownership-page API-KEY library owned-book)))) "your book"))
+               (span (a ((href ,(embed/url (browsing-page API-KEY library owned-book)))) "browse"))))
+
+(define (available-item-details-page API-KEY library owned-book available-book-id)
   (lambda (request)
-    (define item (find-library-book library book-id)) 
+    (define item (find-library-book library available-book-id))
+    (define (response-generator embed/url)   
     (response/xexpr
-     `(html (head (title "item details"))
+     `(html (head (title "item details") 
+                  (script ,(format "const ownedBookId = '~a'~%const bookId = '~a'" (book-id owned-book) available-book-id))
+                  (script ((src "/trade.js"))))
             (body
-             (h1 ((style ,(style-color "green")))"item details")
-             ,(book-title item)
-             ,@(book-authors item)
-             ,(book-self-link item)
-             ,(book-isbn item)))))) 
+             ,(nav-bar API-KEY library embed/url owned-book "item details")
+             ,(book-details item) 
+             (div ((id "trade")))))))
+    (send/suspend/dispatch response-generator)))    
+
+(define (ownership-page API-KEY library owned-book)
+  (lambda (request)
+  (define (response-generator embed/url)
+    (response/xexpr
+     `(html (head (title "your book"))
+            (body
+             ,(nav-bar API-KEY library embed/url owned-book "your book")
+             ,(book-details owned-book)
+             ))))
+   (send/suspend/dispatch response-generator)))           
 
 (provide accept)   
