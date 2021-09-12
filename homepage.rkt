@@ -72,7 +72,11 @@
                (h1 ((style ,(style-color "green")))"your book")
                (ul ((style "margin:auto;"))
                    (li (a ((href ,(embed/url (browsing-page API-KEY library book)))) 
-                          ,(string-append (book-title book) " - " (string-join (book-authors book) ", ") " - " (book-isbn book)))))))))
+                          ,(string-append (book-title book) 
+                          " - " (string-join (book-authors book) ", ") 
+                          " - " (match (book-isbn book)
+                                  [#f "no isbn"]
+                                  [x x])))))))))
     (send/suspend/dispatch response-generator)))
 
 (define (browsing-page API-KEY library owned-book)
@@ -95,7 +99,9 @@
   `(section
               (h2 ,(book-title book))
               (p ,@(book-authors book))
-              (p ,(book-isbn book))))
+              (p ,(match (book-isbn book)
+                    [#f "no isbn"]
+                    [X X]))))
 
 (define (nav-bar API-KEY library embed/url owned-book title)
   `(div ((style ,(style-color "green"))) 

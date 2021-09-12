@@ -29,13 +29,16 @@
 
 ;;;;;;;;;;;;;
 ;; json -> book
+;; TO DO - handle erros
 (define (parse-book v)
   (define volume-info (hash-ref v 'volumeInfo))
   (book
    (hash-ref volume-info  'title)
    (hash-ref volume-info  'authors (lambda () '()))
    (hash-ref v 'selfLink)
-   (hash-ref (first (hash-ref volume-info 'industryIdentifiers)) 'identifier)
+   (match (hash-ref volume-info 'industryIdentifiers (lambda () #f))
+                [#f #f]
+                [X (hash-ref (first X) 'identifier)])
    (uuid-string)))
 
 
@@ -51,7 +54,7 @@
                       "AND $1 = books.id "
                     "GROUP BY books.id") book-id)
     [(vector id title self_link isbn authors)
-     (book title (pg-array->list authors) self_link isbn id)]))          
+     (book title (pg-array->list authors) self_link (sql-null->false isbn) id)]))          
 
 ;; library -> list-of vector (string, id)
 (define (library-titles library)
@@ -67,7 +70,7 @@
      (lambda ()     
        (query-exec conn
                    "INSERT INTO books (title, self_link, isbn, id) VALUES ($1, $2, $3, $4); "
-                   (book-title book) (book-self-link book) (book-isbn book) (book-id book))     
+                   (book-title book) (book-self-link book) (false->sql-null (book-isbn book)) (book-id book))     
        (for-each (lambda (author) 
                    (query-exec conn
                                "INSERT INTO authors (bid, name) VALUES ($1, $2)" (book-id book)
