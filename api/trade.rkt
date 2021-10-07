@@ -9,9 +9,10 @@
 ;; trade -> jsexpr?
 (define (trade->jsexpr t)
   (match t
-    [(trade side1 side2)
+    [(trade side1 side2 state)
      (hash 'side1 side1
-           'side2 side2)]))  
+           'side2 side2
+           'state state)]))  
 
 ;; number bytes string -> reponse?
 (define (response/error code message-bytes error-message)
@@ -29,7 +30,7 @@
      [("trade" (string-arg)) #:method "get" (get-trade! library)]
      [("trade" (string-arg)) #:method "put" (update-trade! library)]
      [("trade" (string-arg)) #:method "delete" (delete-trade! library)]
-     ))
+     [("trades") #:method "get" (find-trades! library)]))
   trade-dispatch)
 
 ;; library -> request -> response
@@ -42,7 +43,7 @@
          (if 
           (jsexpr? json) 
           (match (parse-trade json)
-            [(? string? error-message) (response/error 400 #"Bad Request" error-message)]
+            [(list _ (? string? error-message)) (response/error 400 #"Bad Request" error-message)]
             [trade 
              (match (library-insert-trade! trade library)
                [#false (response/error 500 #"Internal Server Error" "Unknown error creating trade")]
@@ -72,7 +73,7 @@
              (if
                (jsexpr? json)
                (match (parse-trade json)
-                 [(? string? error-message) (response/error 400 #"Bad Request" error-message)]
+                 [(list _ (? string? error-message)) (response/error 400 #"Bad Request" error-message)]
                  [trade
                    (match (library-update-trade! trade-id trade library)
                      [#false (response/error 404 #"Not Found" "not found")]
@@ -88,5 +89,22 @@
        (match (library-delete-trade! trade-id library)
 	 [#false (response/error 404 #"Not Found" "not found")]
 	 [id (response/jsexpr id)])])))
+
+
+;; complete find-trades hook up with library-search-trade
+;; add powershell script
+;; possible refactor library-search-trades
+(define (find-trades! library)
+  (lambda (request)
+    (let* ((params (url-query(request-uri request))))
+      (match (params->trade-search params)
+        [(? string? error) (response/error 400 #"Bad Request" error)]
+        [search ;; handle errors from library search trades
+          (match (map (trade->jsexpr (library-search-trades! search library)))
+            [(? list? x) (response/jsexpr x)]
+            [ _ (response/error 400 #"Bad Request" "invalid json")])]))))
+           
+    
+
 
 (provide API)

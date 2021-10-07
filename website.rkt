@@ -5,7 +5,10 @@
 (require "homepage.rkt")
 (require "notifications.rkt")
 (require "database.rkt")
+;(require date)
 (require (prefix-in trade: "./api/trade.rkt"))
+
+;(current-date-string-iso-8601)
 
 (define PG-PASSWORD (getenv "PG_PASSWORD"))
 (define PG-HOST (make-parameter (getenv "PG_HOST")))

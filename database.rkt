@@ -42,9 +42,17 @@
     (string-append "ALTER TABLE trades ADD COLUMN state TEXT NOT NULL DEFAULT 'initiated' " 
       "CONSTRAINT valid_states CHECK (state = 'initiated' OR state = 'accepted' OR state = 'completed') ")))
 
+(define (rename-trades-columns db)
+  (call-with-transaction db (lambda () 
+        (query-exec db
+          "ALTER TABLE trades RENAME COLUMN item1 TO side1")
+        (query-exec db
+          "ALTER TABLE trades RENAME COLUMN item2 TO side2"))))
+
 (define migrations `(
   (0 . ,unique-id-for-books)
-  (1 . ,state-for-trades)))
+  (1 . ,state-for-trades)
+  (2 . ,rename-trades-columns)))
 
 (define (migrate db)
   (define current-version 

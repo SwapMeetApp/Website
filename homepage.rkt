@@ -85,7 +85,7 @@
       (response/xexpr
        `(html (head (title "available items"))
               (body
-               (h1 ((style ,(style-color "green")))"browse")
+               ,(nav-bar API-KEY library embed/url owned-book "browse")
                (ul ((style "margin:auto;"))
                    ,@(map (lambda (row)
                             (match row
@@ -128,7 +128,9 @@
   (lambda (request)
   (define (response-generator embed/url)
     (response/xexpr
-     `(html (head (title "your book"))
+     `(html (head (title "your book")
+                  (script ,(format "const ownedBookId = '~a'" (book-id owned-book)))
+                  (script ((src "/ownership.js"))))
             (body
              ,(nav-bar API-KEY library embed/url owned-book "your book")
              ,(book-details owned-book)
