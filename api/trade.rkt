@@ -30,7 +30,9 @@
      [("trade" (string-arg)) #:method "get" (get-trade! library)]
      [("trade" (string-arg)) #:method "put" (update-trade! library)]
      [("trade" (string-arg)) #:method "delete" (delete-trade! library)]
-     [("trades") #:method "get" (find-trades! library)]))
+     ;; this should be "get" but there is a mysterious 500 when using query parameters
+     ;; seems to be an issue with the web-server library in racket
+     [("trades") #:method "post" (find-trades! library)]))
   trade-dispatch)
 
 ;; library -> request -> response
@@ -96,15 +98,16 @@
 ;; possible refactor library-search-trades
 (define (find-trades! library)
   (lambda (request)
-    (let* ((params (url-query(request-uri request))))
-      (match (params->trade-search params)
-        [(? string? error) (response/error 400 #"Bad Request" error)]
-        [search ;; handle errors from library search trades
-          (match (map (trade->jsexpr (library-search-trades! search library)))
-            [(? list? x) (response/jsexpr x)]
-            [ _ (response/error 400 #"Bad Request" "invalid json")])]))))
-           
-    
-
+      (match (request-post-data/raw request)
+        [#false (response/error 400 #"Bad Request" "empty body")]
+        [body
+          (let ((json (bytes->jsexpr body)))
+            (if 
+              (jsexpr? json)
+                (match (jsexpr->trade-search json)
+                  [(? string? error)  (response/error 400 #"Bad Request" error)]
+                  [(? trade-search? search) 
+                    (response/jsexpr (map trade->jsexpr (library-search-trades! search library)))])
+                (response/error 400 #"Bad Request" "invalid json")))])))
 
 (provide API)

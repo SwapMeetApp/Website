@@ -42,33 +42,38 @@
 ;;  (trade-search [Maybe uuid-string?][Maybe uuid-string?][Maybe trade-state?]
 (struct trade-search [side1 side2 state])
 
-(define (params->trade-search params)
+(define (jsexpr->trade-search json)
+  (with-handlers ((exn:fail?
+                   (lambda (e) e)))
   (let(
-      (side1 (match (assq 'side1 params)
+      (side1 (match (hash-ref json 'side1 (lambda () #f))
                 [#f #f]
-                [(cons _ s) s]))
-      (side2 (match (assq 'side2 params)
+                [(? uuid-string? s) s]
+                [X (error "side1 should be uuid, got " X)]))
+      (side2 (match (hash-ref json 'side2 (lambda () #f))
                 [#f #f]
-                [(cons _ s) s]))
-      (state (match (assq 'state params)
+                [(? uuid-string? s) s]
+                [X (error "side2 should be uuid, got " X)]))
+      (state (match (hash-ref json 'state (lambda () #f))
                 [#f #f]
-                [(cons _ s) s])))
+                [(? trade-state? s) s]
+                [X (error "state should be a valid trade state, got " X)])))
   (match (list side1 side2 state)
     [(list #f #f #f) "must provide at least one of side1, side2, or state"]
-    [(list (? uuid-string? s1) (? uuid-string? s2) (? trade-state? st))
+    [(list s1 s2 st)
         (trade-search s1 s2 st)]
-    [(list (? uuid-string? s1) #f (? trade-state? st))
+    [(list s1 #f st)
         (trade-search s1 #f st)]
-    [(list (? uuid-string? s1) (? uuid-string? s2) #f)
+    [(list s1 s2 #f)
         (trade-search s1 s2 #f)]
-    [(list (? uuid-string? s1) #f #f)
+    [(list s1 #f #f)
         (trade-search s1 #f #f)]
-    [(list #f (? uuid-string? s2) (? trade-state? st))
+    [(list #f s2 st)
       (trade-search #f s2 st)]
-    [(list #f #f (? trade-state? st))
+    [(list #f #f st)
       (trade-search #f #f st)]
-    [(list #f (? uuid-string? s2) #f)
-      (trade-search #f s2 #f)])))
+    [(list #f s2 #f)
+      (trade-search #f s2 #f)]))))
 
 ;; this is CRUD for a trade
 ;; puts the trade into the database
@@ -112,29 +117,27 @@
 ;;trade-search library -> [List-of trade]
 (define (library-search-trades! search library)
   (let* ((conn (library-db library))
-         (terms (list (trade-search-side1 search)
-                      (trade-search-side2 search)
-                      (trade-search-state search)))
-         (terms2 `((side1  ,(trade-search-side1 search))
-                  (side2  ,(trade-search-side2 search))
-                  (state  ,(trade-search-state search))))
-         (terms3 (filter (lambda (x)
-                        (match x
-                        [(list _ #f) #f]
-                        [x #t])) terms2))
-         (indexes (second (foldl (lambda (x acc)
-                            (list (+ 1 (first acc)) (append (second acc) (list (first acc))))) '(1 ()) terms3))) 
-         (q (string-append "SELECT * FROM trades WHERE "
-                                          (string-join 
-                                          (map (lambda (i x) 
-                                            (match x 
-                                            [(list col str) (format "$~a = ~a" i col)]))
-                                            indexes terms3)
-                                            " AND ")))
+         (terms `(,@(match (trade-search-side1 search)
+                      [#f '()]
+                      [x `((side1 ,x))])
+                  ,@(match (trade-search-side2 search)
+                      [#f '()]
+                      [x `((side2 ,x))])
+                  ,@(match (trade-search-state search)
+                      [#f '()]
+                      [x `((state ,x))])))
+         (q (string-append 
+              "SELECT * FROM trades WHERE "
+              (string-join (map (lambda (i x) 
+                                  (match x 
+                                    [(list col str) (format "$~a = ~a" i col)]))
+                                (range 1 (length terms))
+                                terms)
+                            " AND ")))
           (row->trade (lambda (r)
             (match r
               [(vector id side1 side2 state) (trade side1 side2 state)]))))                                                         
    (map row->trade (apply query-rows conn q 
-                     (filter (lambda (x) (not (eq? #f x))) terms)))))
+                     (map second terms)))))
  
 (provide (all-defined-out))

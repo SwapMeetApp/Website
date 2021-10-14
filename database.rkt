@@ -68,7 +68,7 @@
         (equal? (car migration) current-version))
       migrations)
      migrations))
-    (println migrations-to-run) 
+    (printf "running migrations: ~a\n" migrations-to-run) 
   (for-each (lambda (m) 
               ((cdr m) db)) migrations-to-run)
   (define most-recent 

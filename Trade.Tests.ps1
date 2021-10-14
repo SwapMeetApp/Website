@@ -51,9 +51,8 @@ Describe 'trade api' {
                 $existingTrade["state"] | Should -BeExactly $expected["state"]
         }
         It 'updates a trade' {
-                #TO DO make these work
                 $existingTrade = $testcase
-                $updatedTrade = ConvertTo-Json @{side1 = $existingTrade.side2; side2 = $existingTrade.side1 }
+                $updatedTrade = ConvertTo-Json @{side1 = $existingTrade.side2; side2 = $existingTrade.side1 ; state = "accepted" }
                 $actualTrade = Invoke-WebRequest -Method PUT -Body $updatedTrade http://localhost:8000/trade/$script:created
                 $uuidString = $actualTrade.Content | ConvertFrom-Json
                 $script:created | Should -Be $uuidString
@@ -66,8 +65,12 @@ Describe 'trade api' {
         }
         It 'searches a trade' {
                 $script:created | Should -Not -Be $null
-                $uri = "http://localhost:8000/trades?side1=$script:created"
-                $searchTrade = (Invoke-WebRequest -Method GET $uri).Content | ConvertFrom-Json
-                #todo finish
+                $body = @{side1 = $script:created }
+                $uri = "http://localhost:8000/trades"
+                $searchTrade = (Invoke-WebRequest -Method POST -Body (ConvertTo-Json $body) $uri).Content | ConvertFrom-Json
+                $searchTrade | Should -Be $false
+                
+                #fix this still 500
+                
         }
 }
