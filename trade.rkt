@@ -44,7 +44,7 @@
 
 (define (jsexpr->trade-search json)
   (with-handlers ((exn:fail?
-                   (lambda (e) e)))
+                   (lambda (e) (exn-message e))))
   (let(
       (side1 (match (hash-ref json 'side1 (lambda () #f))
                 [#f #f]
@@ -131,12 +131,12 @@
               (string-join (map (lambda (i x) 
                                   (match x 
                                     [(list col str) (format "$~a = ~a" i col)]))
-                                (range 1 (length terms))
+                                (range 1 (+ 1 (length terms)))
                                 terms)
                             " AND ")))
           (row->trade (lambda (r)
             (match r
-              [(vector id side1 side2 state) (trade side1 side2 state)]))))                                                         
+              [(vector id side1 side2 state) (trade side1 side2 state)]))))                                                                 
    (map row->trade (apply query-rows conn q 
                      (map second terms)))))
  

@@ -17,7 +17,7 @@ Describe 'trade api' {
                         $Env:API_KEY = (Get-Content .env)
                         $Env:PG_PASSWORD = "hello"
                         $Env:PG_HOST = "localhost"
-                        racket website.rkt --no-ssl --port 8000 
+                        racket website.rkt --no-ssl --port 8000
                 }
         }
         AfterAll {
@@ -64,13 +64,9 @@ Describe 'trade api' {
                 $script:created | Should -Be $deletedTrade
         }
         It 'searches a trade' {
-                $script:created | Should -Not -Be $null
-                $body = @{side1 = $script:created }
+                $body = @{side1 = $testcase.side1 }
                 $uri = "http://localhost:8000/trades"
                 $searchTrade = (Invoke-WebRequest -Method POST -Body (ConvertTo-Json $body) $uri).Content | ConvertFrom-Json
-                $searchTrade | Should -Be $false
-                
-                #fix this still 500
-                
+                $searchTrade.Where{ $_.side1 = = $testcase.side1 }.length  | Should -BeGreaterThan 0 
         }
 }
