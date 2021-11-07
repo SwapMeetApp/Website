@@ -134,6 +134,8 @@
             (body
              ,(nav-bar API-KEY library embed/url owned-book "your book")
              ,(book-details owned-book)
+             (section ((id "side1"))  (h2 "Trades you initiated"))
+             (section ((id "side2"))  (h2 "Trades others initiated with you"))
              ))))
    (send/suspend/dispatch response-generator)))           
 
