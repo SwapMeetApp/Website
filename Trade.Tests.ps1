@@ -67,6 +67,6 @@ Describe 'trade api' {
                 $body = @{side1 = $testcase.side1 }
                 $uri = "http://localhost:8000/trades"
                 $searchTrade = (Invoke-WebRequest -Method POST -Body (ConvertTo-Json $body) $uri).Content | ConvertFrom-Json
-                $searchTrade.Where{ $_.side1 = = $testcase.side1 }.length  | Should -BeGreaterThan 0 
+                $searchTrade.Where{ $_.side1 -eq $testcase.side1 }.length  | Should -BeGreaterThan 0 
         }
 }
