@@ -23,20 +23,24 @@
     ["completed" #true]
     [x #false]))
 
+
 ;; json -> [Or [trade-of uuid] (List Symbol String)]
 (define (parse-trade json)
-  (with-handlers ((exn:fail:contract? 
-                   (lambda (e) (list 'unexpected-json (format "expect object with side1 and side2: ~a" json)))))
+  (with-handlers ((list?
+                    (lambda (e) e))
+                  (exn:fail:contract? 
+                   (lambda (e) (list 'unexpected-json (format "expect object with side1 and side2: ~a" json))))
+                  )
     (trade
      (match (hash-ref json 'side1)
        [(? uuid-string? side1) side1]
-       [ x (list 'not-uuid (format "expected uuid: ~a" x))])
+       [ x (raise (list 'not-uuid (format "expected uuid: ~a" x)))])
      (match (hash-ref json 'side2)
        [(? uuid-string? side2) side2]
-       [ x (list 'not-uuid (format "expected uuid: ~a" x))])
+       [ x (raise (list 'not-uuid (format "expected uuid: ~a" x)))])
      (match (hash-ref json 'state)
        [(? trade-state? state) state]
-       [ x (list 'not-trade-state (format "expected trade-state: ~a" x))]))))
+       [ x (raise (list 'not-trade-state (format "expected trade-state: ~a" x)))]))))
 
 ;; a trade-search is a structure: 
 ;;  (trade-search [Maybe uuid-string?][Maybe uuid-string?][Maybe trade-state?]
