@@ -30,7 +30,7 @@
 ;;;;;;;;;;;;;
 ;; json -> book
 ;; TO DO - handle erros
-(define (parse-book v)
+(define (parse-google-book v)
   (define volume-info (hash-ref v 'volumeInfo))
   (book
    (hash-ref volume-info  'title)

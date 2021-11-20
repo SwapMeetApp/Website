@@ -7,6 +7,7 @@
 (require "database.rkt")
 ;(require date)
 (require (prefix-in trade: "./api/trade.rkt"))
+(require (prefix-in books: "./api/books.rkt"))
 
 ;(current-date-string-iso-8601)
 
@@ -32,7 +33,7 @@
 
 (serve/servlet (accept API-KEY library)
                 handle-websockets
-                (trade:API library)
+                (list (trade:API library) (books:API library))
                #:launch-browser? #f
                #:listen-ip #f
                #:port (PORT)

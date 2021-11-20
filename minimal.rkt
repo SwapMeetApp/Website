@@ -79,7 +79,7 @@
 (define (serve/servlet
          start
          ws-handler
-         api-handler
+         api-handlers
          #:connection-close?
          [connection-close? #f]
          #:command-line?
@@ -161,17 +161,20 @@
                                (log:log-format->format log-format)
                                log-format)
                              #:log-path log-file))
-     (dispatch/servlet 
-      api-handler
-      #:regexp #rx""
-      #:stateless? #true
-      #:stuffer default-stuffer
-      #:current-directory servlet-current-directory
-      #:manager (make-threshold-LRU-manager
-           (lambda (request)
-             (response/jsexpr
-             "request timed out"))
-           (* 128 1024 1024)))
+     (dispatcher-sequence
+      (map (lambda (api-handler) 
+              (dispatch/servlet 
+              api-handler
+              #:regexp #rx""
+              #:stateless? #true
+              #:stuffer default-stuffer
+              #:current-directory servlet-current-directory
+              #:manager (make-threshold-LRU-manager
+                  (lambda (request)
+                    (response/jsexpr
+                    "request timed out"))
+                  (* 128 1024 1024))))
+            api-handlers))
 
      (dispatch/servlet
       start

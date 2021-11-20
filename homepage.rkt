@@ -51,7 +51,7 @@
       (define a-search
         (make-search-parameters (request-bindings request)))
       (define titles-and-authors
-        (map parse-book (hash-ref (get a-search API-KEY) 'items)))
+        (map parse-google-book (hash-ref (get a-search API-KEY) 'items)))
       (response/xexpr
        `(html (head (title "results"))
               (body
