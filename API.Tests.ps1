@@ -83,6 +83,11 @@ Describe 'apis' {
                                 id          = "097eb8c0-c14c-4280-af2f-47194e6c7456";
                         }
                 }
+                It 'creates a book' {
+                        $newBo = Invoke-WebRequest -Method POST -Body (ConvertTo-Json $testcase) http://localhost:8000/trade
+                        $uuidString = $newTrade.Content | ConvertFrom-Json 
+                        $script:created = New-Object -TypeName System.Guid -ArgumentList $uuidString 
+                }
 
                 It 'reads a book' {
                         $uri = "http://localhost:8000/books/$($testBook.id)"
