@@ -118,7 +118,7 @@
       [#false #false]
       [(vector id) id])))              
 
-;;trade-search library -> [List-of trade]
+;;trade-search library -> [List-of hash]
 (define (library-search-trades! search library)
   (let* ((conn (library-db library))
          (terms `(,@(match (trade-search-side1 search)
@@ -140,7 +140,7 @@
                             " AND ")))
           (row->trade (lambda (r)
             (match r
-              [(vector id side1 side2 state) (trade side1 side2 state)]))))                                                                 
+              [(vector id side1 side2 state) (hash 'id id 'side1 side1 'side2 side2 'state state)]))))                                                                 
    (map row->trade (apply query-rows conn q 
                      (map second terms)))))
  

@@ -107,7 +107,7 @@
                 (match (jsexpr->trade-search json)
                   [(? string? error)  (response/error 400 #"Bad Request" error)]
                   [(? trade-search? search) 
-                    (response/jsexpr (map trade->jsexpr (library-search-trades! search library)))])
+                    (response/jsexpr (library-search-trades! search library))])
                 (response/error 400 #"Bad Request" "invalid json")))])))
 
 (provide API)
